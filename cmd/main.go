@@ -14,6 +14,8 @@ import (
 )
 
 func main() {
+	logrus.SetFormatter(new(logrus.JSONFormatter)) // установка формата вывода логов
+
 	if err := InitConfig(); err != nil {
 		logrus.Fatalf("error ocurred while init config: %s", err.Error())
 	}
