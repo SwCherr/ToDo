@@ -42,7 +42,7 @@ func main() {
 	handler := handler.NewHandler(service)
 
 	srv := new(todo.Server)
-	if err := srv.Run(viper.GetString("8000"), handler.InitRoutes()); err != nil {
+	if err := srv.Run(viper.GetString("port"), handler.InitRoutes()); err != nil {
 		logrus.Fatalf("error ocurred while running HTTP server: %s", err.Error())
 	}
 }
