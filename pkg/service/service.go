@@ -6,7 +6,8 @@ import (
 )
 
 type Authorization interface {
-	CreateUser(user todo.User) (int, error) // return id new user in db & error
+	CreateUser(user todo.User) (int, error)                  // return id new user in db & error
+	GenerateToken(username, password string) (string, error) // return generated token new user in db & error
 }
 
 type TodoList interface {
