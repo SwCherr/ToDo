@@ -26,13 +26,13 @@ func (h *Handler) signUp(c *gin.Context) {
 	})
 }
 
-type signUpInput struct {
+type signInInput struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
 func (h *Handler) signIn(c *gin.Context) {
-	var input signUpInput
+	var input signInInput
 
 	if err := c.BindJSON(&input); err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error()) // 6 video 3-47 | http.StatusBadRequest == 400 - ошибка со стороны клиента при запросе

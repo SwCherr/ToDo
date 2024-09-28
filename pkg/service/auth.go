@@ -44,7 +44,6 @@ func (s *AuthService) generatePasswordaHash(password string) string {
 func (s *AuthService) GenerateToken(username, password string) (string, error) {
 	// get user from db
 	user, err := s.repo.GetUser(username, s.generatePasswordaHash(password))
-
 	if err != nil {
 		return "", err
 	}
