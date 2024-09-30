@@ -33,13 +33,8 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-func (s *AuthService) CreateUser(user app.User) (int, error) {
-	user.Password = s.generatePasswordaHash(user.Password)
-	return s.repo.CreateUser(user)
-}
-
-func (s *AuthService) GetUserById(id int) (app.User, error) {
-	return s.repo.GetUserById(id)
+func (s *AuthService) GetUserByGuid(id int) (app.User, error) {
+	return s.repo.GetUserByGuid(id)
 }
 
 func (s *AuthService) generatePasswordaHash(password string) string {
@@ -91,7 +86,7 @@ func (s *AuthService) createSession(user_id int, user_ip, token string) error {
 }
 
 func (s *AuthService) RefreshToken(user_id int, user_ip, token string) (access, refresh string, err error) {
-	user, err := s.repo.GetUserById(user_id)
+	user, err := s.repo.GetUserByGuid(user_id)
 	if err != nil {
 		return "", "", err
 	}

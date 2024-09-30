@@ -6,11 +6,9 @@ import (
 )
 
 type Authorization interface {
-	CreateUser(user app.User) (int, error)
-	GetUserById(id int) (app.User, error)
+	GetUserByGuid(id int) (app.User, error)
 	GeneratePareTokens(user_id int, user_ip string) (acces, refresh string, err error)
 	RefreshToken(user_id int, user_ip, token string) (acces, refresh string, err error)
-	// ParseAccsessToken(token string) (int, error)
 }
 
 type Service struct {
