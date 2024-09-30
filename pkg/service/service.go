@@ -1,16 +1,16 @@
 package service
 
 import (
-	todo "app"
+	"app"
 	"app/pkg/repository"
 )
 
 type Authorization interface {
-	CreateUser(user todo.User) (int, error)                                 // return id new user in db & error
-	CreateSession(username, password, token, user_ip string) error          // return error
-	GenerateAccessToken(username, password, user_ip string) (string, error) // return generated token & error
-	GenerateRefreshToken() (string, error)                                  // return generated token & error
-	// ParseAccsessToken(token string) (int, error)                            // return user`s id from db & error
+	CreateUser(user app.User) (int, error)
+	GetUserById(id int) (app.User, error)
+	GeneratePareTokens(user_id int, user_ip string) (acces, refresh string, err error)
+	RefreshToken(user_id int, user_ip, token string) (acces, refresh string, err error)
+	// ParseAccsessToken(token string) (int, error)
 }
 
 type Service struct {

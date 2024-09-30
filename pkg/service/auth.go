@@ -1,10 +1,11 @@
 package service
 
 import (
-	todo "app"
+	"app"
 	"app/pkg/repository"
 	"crypto/rand"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,20 +33,13 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-func (s *AuthService) CreateUser(user todo.User) (int, error) {
+func (s *AuthService) CreateUser(user app.User) (int, error) {
 	user.Password = s.generatePasswordaHash(user.Password)
 	return s.repo.CreateUser(user)
 }
 
-func (s *AuthService) CreateSession(username, password, token, user_ip string) error {
-	user, err := s.repo.GetUser(username, s.generatePasswordaHash(password))
-	if err != nil {
-		return err
-	}
-	user.UserIP = user_ip
-	user.RefreshToken = token
-	user.TimeLifeRT = time.Now().Add(accessTokenITL).Unix()
-	return s.repo.CreateSession(user)
+func (s *AuthService) GetUserById(id int) (app.User, error) {
+	return s.repo.GetUserById(id)
 }
 
 func (s *AuthService) generatePasswordaHash(password string) string {
@@ -54,20 +48,13 @@ func (s *AuthService) generatePasswordaHash(password string) string {
 	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
 }
 
-func (s *AuthService) GenerateAccessToken(username, password, user_ip string) (string, error) {
-	// get user from db
-	user, err := s.repo.GetUser(username, s.generatePasswordaHash(password))
-	if err != nil {
-		return "", err
-	}
-
-	// generate token
+func (s *AuthService) GenerateAccessToken(user_id int, user_ip string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, &tokenClaims{
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(accessTokenITL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 		},
-		user.ID,
+		user_id,
 		user_ip})
 	return token.SignedString([]byte(siginkey))
 }
@@ -80,6 +67,51 @@ func (s *AuthService) GenerateRefreshToken() (string, error) {
 		return "", err
 	}
 	return s.generatePasswordaHash(string(refresh_token)), nil
+}
+
+func (s *AuthService) GeneratePareTokens(user_id int, user_ip string) (acces, refresh string, err error) {
+	acces_token, err := s.GenerateAccessToken(user_id, user_ip)
+	if err != nil {
+		return "", "", err
+	}
+
+	refresh_token, err := s.GenerateRefreshToken()
+	if err != nil {
+		return "", "", err
+	}
+
+	if err := s.createSession(user_id, user_ip, refresh_token); err != nil {
+		return "", "", err
+	}
+	return acces_token, refresh_token, nil
+}
+
+func (s *AuthService) createSession(user_id int, user_ip, token string) error {
+	return s.repo.CreateSession(user_id, user_ip, token)
+}
+
+func (s *AuthService) RefreshToken(user_id int, user_ip, token string) (access, refresh string, err error) {
+	user, err := s.repo.GetUserById(user_id)
+	if err != nil {
+		return "", "", err
+	}
+
+	if user.UserIP != user_ip {
+		s.repo.DeleteSession(user)
+		// send email ----------------------------------------------
+		return "", "", errors.New("invalid IP addres: 1 - " + user_ip + " 2 - " + user.UserIP)
+	}
+
+	if user.RefreshToken != token {
+		s.repo.DeleteSession(user)
+		return "", "", errors.New("invalid refresh token")
+	}
+
+	if user.TimeLifeRT < time.Now().Unix() {
+		s.repo.DeleteSession(user)
+		return "", "", errors.New("refresh token expired")
+	}
+	return s.GeneratePareTokens(user_id, user_ip)
 }
 
 // func (s *AuthService) ParseAccsessToken(accessToken string) (int, error) {
