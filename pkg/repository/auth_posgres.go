@@ -16,29 +16,40 @@ func NewAuthPostgres(db *sqlx.DB) *AuthPostgres {
 	return &AuthPostgres{db: db}
 }
 
-func (r *AuthPostgres) CreateSession(user_id int, user_ip, token string) error {
+func (r *AuthPostgres) GetUserByGuid(guid int) (app.User, error) {
+	var user app.User
+	query := fmt.Sprintf("SELECT * FROM %s WHERE guid=$1", userTable)
+	err := r.db.Get(&user, query, guid)
+	return user, err
+}
+
+func (r *AuthPostgres) CreateSession(user_guid int, user_ip, token string) error {
 	var id int
-	time := time.Now().Add(720 * time.Hour).Unix()
+	time := time.Now().Add(720 * time.Hour).Unix() // перенести задание времени в сервисы ????
 
 	query := fmt.Sprintf("INSERT INTO %s (guid, ip, token, time) values ($1, $2, $3, $4) RETURNING id", userTable)
-	user_row := r.db.QueryRow(query, user_id, user_ip, token, time)
+	user_row := r.db.QueryRow(query, user_guid, user_ip, token, time)
 	if err := user_row.Scan(&id); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *AuthPostgres) GetUserByGuid(id int) (app.User, error) {
-	var user app.User
-	query := fmt.Sprintf("SELECT * FROM %s WHERE guid=$1", userTable)
-	err := r.db.Get(&user, query, id)
-	return user, err
+func (r *AuthPostgres) UpdateSession(user_guid int, user_ip, token string) error {
+	var id int
+	time := time.Now().Add(720 * time.Hour).Unix() // перенести задание времени в сервисы ????
+	query := fmt.Sprintf("UPDATE %s SET token=$1, time=$2 WHERE guid=$3 RETURNING id", userTable)
+	user_row := r.db.QueryRow(query, token, time, user_guid)
+	if err := user_row.Scan(&id); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (r *AuthPostgres) DeleteSession(user app.User) error {
+func (r *AuthPostgres) DeleteSession(guid int) error {
 	var id int
 	query := fmt.Sprintf("UPDATE %s SET ip=$1, token=$2, time=$3 WHERE guid=$4 RETURNING id", userTable)
-	user_row := r.db.QueryRow(query, "", "", "", user.ID)
+	user_row := r.db.QueryRow(query, "", "", "", guid)
 	if err := user_row.Scan(&id); err != nil {
 		return err
 	}

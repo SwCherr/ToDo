@@ -25,18 +25,21 @@ func (h *Handler) GetPareTokens(c *gin.Context) {
 		return
 	}
 
+	if err := h.service.CreateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	// предача в формате base64
 	newRefreshToken = b64.StdEncoding.EncodeToString([]byte(newRefreshToken))
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"accessToken":  newAccessToken,
 		"refreshToken": newRefreshToken,
-		"user.UserIP":  c.ClientIP(),
 	})
 }
 
 type refreshInput struct {
 	GUID  int    `json:"id" binding:"required"`
-	IP    string `json:"ip" binding:"required"`
 	Token string `json:"token" binding:"required"`
 }
 
@@ -56,6 +59,11 @@ func (h *Handler) refreshToken(c *gin.Context) {
 
 	newAccessToken, newRefreshToken, err := h.service.RefreshToken(input.GUID, c.ClientIP(), string(token))
 	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := h.service.UpdateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -9,7 +9,8 @@ import (
 type Authorization interface {
 	GetUserByGuid(id int) (todo.User, error)
 	CreateSession(user_id int, user_ip, token string) error
-	DeleteSession(user todo.User) error
+	UpdateSession(user_id int, user_ip, token string) error
+	DeleteSession(guid int) error
 }
 
 type Repository struct {
