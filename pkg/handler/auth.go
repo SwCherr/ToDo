@@ -9,7 +9,6 @@ import (
 
 func (h *Handler) signUp(c *gin.Context) {
 	var input todo.User
-
 	if err := c.BindJSON(&input); err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error()) // 6 video 3-47 | http.StatusBadRequest == 400 - ошибка со стороны клиента при запросе
 		return
@@ -33,19 +32,46 @@ type signInInput struct {
 
 func (h *Handler) signIn(c *gin.Context) {
 	var input signInInput
-
 	if err := c.BindJSON(&input); err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error()) // 6 video 3-47 | http.StatusBadRequest == 400 - ошибка со стороны клиента при запросе
 		return
 	}
 
-	token, err := h.service.Authorization.GenerateToken(input.Username, input.Password)
+	// отдаем клиенту
+	newAccessToken, err := h.service.Authorization.GenerateAccessToken(input.Username, input.Password, c.ClientIP())
 	if err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error()) //  500 - внутрення ошибка на сервере
 		return
 	}
 
+	// сохраняем в бд в виде хэша
+	newRefreshToken, err := h.service.Authorization.GenerateRefreshToken()
+	if err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error()) //  500 - внутрення ошибка на сервере
+		return
+	}
+
+	if err := h.service.CreateSession(input.Username, input.Password, newAccessToken, c.ClientIP()); err != nil {
+		newErrorResponse(c, http.StatusInternalServerError, err.Error()) //  500 - внутрення ошибка на сервере
+		return
+	}
+
 	c.JSON(http.StatusOK, map[string]interface{}{
-		"token": token,
+		"accessToken":  newAccessToken,
+		"refreshToken": newRefreshToken,
 	})
 }
+
+// type refreshToken struct {
+// 	Token string `json:"token" binding:"required"`
+// }
+
+// func (h *Handler) refreshingToken(c *gin.Context) {
+// 	var refreshTokenInpit refreshToken
+
+// 	if err := c.BindJSON(&refreshTokenInpit); err != nil {
+// 		newErrorResponse(c, http.StatusBadRequest, err.Error())
+// 		return
+// 	}
+
+// }

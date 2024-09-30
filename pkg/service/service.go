@@ -6,21 +6,15 @@ import (
 )
 
 type Authorization interface {
-	CreateUser(user todo.User) (int, error)                  // return id new user in db & error
-	GenerateToken(username, password string) (string, error) // return generated token new user in db & error
-	ParseToken(token string) (int, error)                    // return user`s id from db & error
-}
-
-type TodoList interface {
-}
-
-type TodoItems interface {
+	CreateUser(user todo.User) (int, error)                                 // return id new user in db & error
+	CreateSession(username, password, token, user_ip string) error          // return error
+	GenerateAccessToken(username, password, user_ip string) (string, error) // return generated token & error
+	GenerateRefreshToken() (string, error)                                  // return generated token & error
+	// ParseAccsessToken(token string) (int, error)                            // return user`s id from db & error
 }
 
 type Service struct {
 	Authorization
-	TodoList
-	TodoItems
 }
 
 func NewService(repos *repository.Repository) *Service {
