@@ -25,7 +25,8 @@ func (h *Handler) GetPareTokens(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.CreateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
+	if err := h.service.CreateSession(input.GUID, "3:3:3", newRefreshToken); err != nil {
+		// if err := h.service.CreateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
