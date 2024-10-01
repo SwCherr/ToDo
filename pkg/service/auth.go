@@ -1,6 +1,7 @@
 package service
 
 import (
+	"app"
 	"app/pkg/repository"
 	"crypto/rand"
 	"crypto/sha1"
@@ -12,9 +13,9 @@ import (
 )
 
 const (
-	salt            = "ahdbvjdccjdn"      // good practice
-	siginkey        = "djdjdjbvhdn3d^&*(" // ключ подписи, нужен для расшифровки токена
-	accessTokenITL  = 1 * time.Hour
+	salt            = "ahdbvjdccjdn"
+	siginkey        = "djdjdjbvhdn3d^&*(" // ключ подписи для расшифровки токена
+	accessTokenITL  = 30 * time.Minute
 	refreshTokenITL = 720 * time.Hour
 )
 
@@ -24,7 +25,7 @@ type AuthService struct {
 
 type tokenClaims struct {
 	jwt.StandardClaims
-	UserId int    `json:"guid"`
+	GUID   string `json:"guid"`
 	UserIP string `json:"ip"`
 }
 
@@ -32,78 +33,84 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-// func (s *AuthService) getUserByGuid(id int) (app.User, error) {
-// 	return s.repo.GetUserByGuid(id)
-// }
-
-func (s *AuthService) CreateSession(user_guid int, user_ip, token string) error {
-	return s.repo.CreateSession(user_guid, user_ip, token)
+func (s *AuthService) SignUp(user app.User) (int, error) {
+	user.Password = s.generateHash(user.Password)
+	return s.repo.SignUp(user)
 }
 
-func (s *AuthService) UpdateSession(user_guid int, user_ip, token string) error {
-	return s.repo.UpdateSession(user_guid, user_ip, token)
+func (s *AuthService) GetPareToken(input app.Sesion) (acces, refresh string, err error) {
+	newAccessToken, err := s.generateAccessToken(input)
+	if err != nil {
+		return "", "", err
+	}
+
+	newRefreshToken, err := s.generateRefreshToken()
+	if err != nil {
+		return "", "", err
+	}
+
+	input.RefreshToken = s.generateHash(newRefreshToken) // hash for save in db
+	if err := s.createSession(input); err != nil {
+		return "", "", err
+	}
+	return newAccessToken, newRefreshToken, nil
 }
 
-func (s *AuthService) generatePasswordaHash(password string) string {
-	hash := sha1.New()
-	hash.Write([]byte(password))
-	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
+func (s *AuthService) RefreshToken(input app.Sesion) (access, refresh string, err error) {
+	user_session, err := s.repo.PullOutSessionByGUID(input.GUID)
+	if err != nil {
+		return "", "", err
+	}
+
+	if user_session.RefreshToken != s.generateHash(input.RefreshToken) {
+		return "", "", errors.New("invalid refresh token")
+	}
+
+	if user_session.UserIP != input.UserIP {
+		// send email
+		user, err := s.repo.GetUserById(user_session.UserID)
+		if err != nil {
+			return "", "", err
+		}
+		s.sendEmail(user.Email)
+		return "", "", errors.New("invalid IP addres")
+	}
+
+	if user_session.ExpiresIn < time.Now().Unix() {
+		return "", "", errors.New("refresh token expired")
+	}
+
+	return s.GetPareToken(user_session)
 }
 
-func (s *AuthService) GenerateAccessToken(user_guid int, user_ip string) (string, error) {
+func (s *AuthService) generateAccessToken(user_session app.Sesion) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, &tokenClaims{
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(accessTokenITL).Unix(),
 			IssuedAt:  time.Now().Unix(),
 		},
-		user_guid,
-		user_ip})
+		user_session.GUID,
+		user_session.UserIP})
 	return token.SignedString([]byte(siginkey))
 }
 
-func (s *AuthService) GenerateRefreshToken() (string, error) {
+func (s *AuthService) generateRefreshToken() (string, error) {
 	size_token := 64
 	refresh_token := make([]byte, size_token)
 	_, err := rand.Read(refresh_token)
 	if err != nil {
 		return "", err
 	}
-	return s.generatePasswordaHash(string(refresh_token)), nil // в каком именно месте лучше хэшировать рефреш токен
+	return string(refresh_token), nil
 }
 
-func (s *AuthService) GeneratePareTokens(user_guid int, user_ip string) (acces, refresh string, err error) {
-	acces_token, err := s.GenerateAccessToken(user_guid, user_ip)
-	if err != nil {
-		return "", "", err
-	}
-
-	refresh_token, err := s.GenerateRefreshToken()
-	if err != nil {
-		return "", "", err
-	}
-	return acces_token, refresh_token, nil
+func (s *AuthService) createSession(session app.Sesion) error {
+	session.ExpiresIn = time.Now().Add(refreshTokenITL).Unix()
+	return s.repo.CreateSession(session)
 }
 
-func (s *AuthService) RefreshToken(user_guid int, user_ip, token string) (access, refresh string, err error) {
-	user, err := s.repo.GetUserByGuid(user_guid)
-	fmt.Println(user)
-	if err != nil {
-		return "", "", err
-	}
-
-	if user.RefreshToken != token {
-		return "", "", errors.New("invalid refresh token")
-	}
-
-	if user.UserIP != user_ip {
-		// send email ----------------------------------------------
-		fmt.Printf("%s", user.UserEmail)
-		s.sendEmail(user.UserEmail)
-		return "", "", errors.New("invalid IP addres")
-	}
-
-	if user.TimeLifeRT < time.Now().Unix() {
-		return "", "", errors.New("refresh token expired")
-	}
-	return s.GeneratePareTokens(user_guid, user_ip)
+func (s *AuthService) generateHash(password string) string {
+	hash := sha1.New()
+	hash.Write([]byte(password))
+	return fmt.Sprintf("%x", hash.Sum([]byte(salt)))
 }

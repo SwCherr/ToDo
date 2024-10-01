@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"app"
 	b64 "encoding/base64"
 
 	"net/http"
@@ -8,30 +9,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type signInInput struct {
-	GUID int `json:"id" binding:"required"`
-}
-
-func (h *Handler) GetPareTokens(c *gin.Context) {
-	var input signInInput
+func (h *Handler) SignUp(c *gin.Context) {
+	var input app.User
 	if err := c.BindJSON(&input); err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	newAccessToken, newRefreshToken, err := h.service.GeneratePareTokens(input.GUID, c.ClientIP())
+	id, err := h.service.SignUp(input)
 	if err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if err := h.service.CreateSession(input.GUID, "3:3:3", newRefreshToken); err != nil {
-		// if err := h.service.CreateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
+	c.JSON(http.StatusOK, map[string]interface{}{
+		"id": id,
+	})
+}
+
+func (h *Handler) GetPareTokens(c *gin.Context) {
+	var input app.Sesion
+	if err := c.BindJSON(&input); err != nil {
+		newErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	input.UserIP = c.ClientIP()
+	newAccessToken, newRefreshToken, err := h.service.GetPareToken(input)
+	if err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// предача в формате base64
+	// предача клиенту в формате base64
 	newRefreshToken = b64.StdEncoding.EncodeToString([]byte(newRefreshToken))
 	c.JSON(http.StatusOK, map[string]interface{}{
 		"accessToken":  newAccessToken,
@@ -39,32 +49,24 @@ func (h *Handler) GetPareTokens(c *gin.Context) {
 	})
 }
 
-type refreshInput struct {
-	GUID  int    `json:"id" binding:"required"`
-	Token string `json:"token" binding:"required"`
-}
-
-func (h *Handler) refreshToken(c *gin.Context) {
-	var input refreshInput
+func (h *Handler) RefreshToken(c *gin.Context) {
+	var input app.Sesion
 	if err := c.BindJSON(&input); err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// декодирование RefreshToken из формата base64
-	token, err := b64.StdEncoding.DecodeString(input.Token)
+	// декодирование RefreshToken из base64
+	token, err := b64.StdEncoding.DecodeString(input.RefreshToken)
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	input.UserIP = c.ClientIP()
+	input.RefreshToken = string(token)
 
-	newAccessToken, newRefreshToken, err := h.service.RefreshToken(input.GUID, c.ClientIP(), string(token))
+	newAccessToken, newRefreshToken, err := h.service.RefreshToken(input)
 	if err != nil {
-		newErrorResponse(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	if err := h.service.UpdateSession(input.GUID, c.ClientIP(), newRefreshToken); err != nil {
 		newErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}

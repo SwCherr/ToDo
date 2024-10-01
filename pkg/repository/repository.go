@@ -1,15 +1,17 @@
 package repository
 
 import (
-	todo "app"
+	"app"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Authorization interface {
-	GetUserByGuid(id int) (todo.User, error)
-	CreateSession(user_id int, user_ip, token string) error
-	UpdateSession(user_id int, user_ip, token string) error
+	SignUp(user app.User) (int, error)
+	GetUserById(id int) (app.User, error)
+	PullOutSessionByGUID(fingerprint string) (app.Sesion, error)
+	CreateSession(session app.Sesion) error
+	// UpdateSession(session app.Sesion) error
 }
 
 type Repository struct {

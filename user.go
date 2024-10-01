@@ -1,10 +1,16 @@
 package app
 
 type User struct {
+	ID       int    `json:"-" db:"id"`
+	Email    string `json:"email" db:"email"`
+	Password string `json:"password" db:"password"`
+}
+
+type Sesion struct {
 	ID           int    `json:"-" db:"id"`
-	Guid         int    `json:"guid" db:"guid"`
-	UserEmail    string `json:"email" db:"email"` // binding:"required" валидирует наличие полей
-	UserIP       string `json:"ip" db:"ip"`       // binding:"required" валидирует наличие полей
-	RefreshToken string `json:"token" db:"token"` // являются частью библиотеки гин
-	TimeLifeRT   int64  `json:"time" db:"time"`
+	UserIP       string `json:"-" db:"ip"`
+	UserID       int    `json:"id" db:"user_id" binding:"required"`
+	GUID         string `json:"guid" db:"guid" binding:"required"` // получать из контекста гина
+	RefreshToken string `json:"refreshToken" db:"refresh_token"`
+	ExpiresIn    int64  `json:"-" db:"expires_in"`
 }

@@ -1,14 +1,14 @@
 package service
 
 import (
+	"app"
 	"app/pkg/repository"
 )
 
 type Authorization interface {
-	GeneratePareTokens(user_id int, user_ip string) (acces, refresh string, err error)
-	RefreshToken(user_id int, user_ip, token string) (acces, refresh string, err error)
-	CreateSession(user_guid int, user_ip, token string) error
-	UpdateSession(user_id int, user_ip, token string) error
+	SignUp(user app.User) (int, error)
+	GetPareToken(session app.Sesion) (acces, refresh string, err error)
+	RefreshToken(session app.Sesion) (acces, refresh string, err error)
 }
 
 type Service struct {
