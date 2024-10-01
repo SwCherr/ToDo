@@ -5,6 +5,7 @@ import (
 	"app/pkg/repository"
 	"crypto/rand"
 	"crypto/sha1"
+	b64 "encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -33,9 +34,9 @@ func NewAuthService(repo repository.Authorization) *AuthService {
 	return &AuthService{repo: repo}
 }
 
-func (s *AuthService) SignUp(user app.User) (int, error) {
+func (s *AuthService) CreateUser(user app.User) (int, error) {
 	user.Password = s.generateHash(user.Password)
-	return s.repo.SignUp(user)
+	return s.repo.CreateUser(user)
 }
 
 func (s *AuthService) GetPareToken(input app.Sesion) (acces, refresh string, err error) {
@@ -53,6 +54,9 @@ func (s *AuthService) GetPareToken(input app.Sesion) (acces, refresh string, err
 	if err := s.createSession(input); err != nil {
 		return "", "", err
 	}
+
+	// предача newRefreshToken в формате base64
+	newRefreshToken = b64.StdEncoding.EncodeToString([]byte(newRefreshToken))
 	return newAccessToken, newRefreshToken, nil
 }
 
@@ -61,6 +65,13 @@ func (s *AuthService) RefreshToken(input app.Sesion) (access, refresh string, er
 	if err != nil {
 		return "", "", err
 	}
+
+	// декодирование RefreshToken из base64
+	token, err := b64.StdEncoding.DecodeString(input.RefreshToken)
+	if err != nil {
+		return "", "", err
+	}
+	input.RefreshToken = string(token)
 
 	if user_session.RefreshToken != s.generateHash(input.RefreshToken) {
 		return "", "", errors.New("invalid refresh token")

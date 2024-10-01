@@ -6,7 +6,7 @@ import (
 )
 
 type Authorization interface {
-	SignUp(user app.User) (int, error)
+	CreateUser(user app.User) (int, error)
 	GetPareToken(session app.Sesion) (acces, refresh string, err error)
 	RefreshToken(session app.Sesion) (acces, refresh string, err error)
 }
